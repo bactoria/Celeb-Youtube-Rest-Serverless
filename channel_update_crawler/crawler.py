@@ -3,24 +3,21 @@ import datetime
 import requests
 from bs4 import BeautifulSoup as bs
 
-prefix = 'https://www.youtube.com/channel/'
-suffix = '/about'
-
 KST = datetime.timezone(datetime.timedelta(hours=9))
 PREFIX = 'https://www.youtube.com/channel/'
 SUFFIX = '/about'
 headers = {"Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7"}
 
 def crawling(channelId):
-    res = requests.get(prefix + channelId + suffix, headers=headers)
+
+    res = requests.get(PREFIX + channelId + SUFFIX, headers=headers)
     soup = bs(res.text, 'html.parser')
 
     subscriber = soup.find_all('span', {'class': 'subscribed'})
     subscriber = re.search('(?<=\>).*(?=\<)', str(subscriber))
     if str(type(subscriber)) == "<class 're.Match'>":
-        subscriber = subscriber.group().replace(',', '')
-        if (re.search('[가-힣]', subscriber)):
-            return crawling(channelId)
+        subscriber = subscriber.group().replace(',','')
+        subscriber = parseToNumber(subscriber)
     else:
         subscriber = -1
 
@@ -60,3 +57,39 @@ def crawling(channelId):
     }
 
     return channel
+    
+def parseToNumber(subscriber):
+
+    if re.compile('[0-9]+만').match(subscriber): # 1234만 or 123만 or 12만
+        token = re.split('[^0-9]+', subscriber)[0] # [1234] or [123] or [12]
+        return int(token + "0000")
+
+    if re.compile('[0-9][0-9]\\.[0-9]만').match(subscriber): # 12.3만
+        token = re.split('[^0-9]+', subscriber) # [12, 3]
+        return int(token[0] + token[1] + "000")
+
+    if re.compile('[0-9]\\.[0-9][0-9]만').match(subscriber): # 1.23만
+        token = re.split('[^0-9]+', subscriber) # [1, 23]
+        return int(token[0] + token[1] + "00")
+    
+    if re.compile('[0-9]\\.[0-9]만').match(subscriber): # 1.2만
+        token = re.split('[^0-9]+', subscriber) # [1, 2]
+        return int(token[0] + token[1] + "000")
+
+    if re.compile('[0-9]만').match(subscriber): # 1만
+        token = re.split('[^0-9]+', subscriber) # [1]
+        return int(token[0] + "0000")
+
+    if re.compile('[0-9]\\.[0-9][0-9]천').match(subscriber): # 1.23천
+        token = re.split('[^0-9]+', subscriber) # [1, 23]
+        return int(token[0] + token[1] + "0")
+
+    if re.compile('[0-9]\\.[0-9]천').match(subscriber): # 1.2천
+        token = re.split('[^0-9]+', subscriber) # [1, 2]
+        return int(token[0] + token[1] + "00");
+
+    if re.compile('[0-9]천').match(subscriber): # 1천
+        token = re.split('[^0-9]+', subscriber) # [1]
+        return int(token[0] + "000")
+
+    return int(subscriber)
